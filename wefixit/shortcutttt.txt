@@ -1,0 +1,30 @@
+@echo off
+REM === Go to your backend project ===
+cd /d C:\Users\pc\wefixit\frontend
+python -m uvicorn backend.main:app --reload --port 5000
+uvicorn backend.main:app --port 5000
+REM === Open CMD here ===
+start cmd /K "cd /d C:\Users\pc\wefixit\backend"
+My$un&Moon93!My$un&Moon93!
+
+REM === Open PowerShell here ===
+start powershell -NoExit -Command "Set-Location 'C:\Users\pc\wefixit\backend'"
+
+REM === Open in VS Code (requires VS Code installed + PATH enabled) ===
+start code C:\Users\pc\wefixit\backend
+
+REM === Start FastAPI server in a new CMD window ===
+start cmd /K "cd /d C:\Users\pc\wefixit\backend && uvicorn app.main:app --reload"
+
+echo.
+echo 🚀 All shortcuts launched: CMD, PowerShell, VS Code, and FastAPI server
+pause
+https://github.com/Koech028/wefixit
+https://github.com/Koech028/wefixit-system.git
+
+C:\Users\pc\wefixit>python -m backend.reset_admin_password
+Enter admin username: KipkoechLagat3325@2002..
+Enter new password: G5$vY2!kMh8@Rn4X
+✅ Password reset for 'KipkoechLagat3325@2002..'!
+
+kS8haTqsJJwlyz0v
