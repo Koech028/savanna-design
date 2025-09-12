@@ -4,9 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 from backend.config import settings
-from backend.routers import contacts
-from backend.routers import reviews, portfolio, auth as auth_router, projects
-from backend.routers import quotes
+from backend.routers import contacts, reviews, portfolio, auth as auth_router, projects, quotes
 from backend.database import db  # ✅ Import your db here
 
 # Ensure uploads folder exists
@@ -18,19 +16,21 @@ def create_app() -> FastAPI:
     # Serve static files
     app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-    # CORS configuration
+    # -------------------- CORS --------------------
+    # ⚠️ For development: allow all origins
+    # allow_origins=["*"] is okay temporarily, but for production, use only your frontend URL
     app.add_middleware(
-    CORSMiddleware,
-     allow_origins=[
-        "http://localhost:8080",             # dev
-        "https://savannadesignsagency.com"   # production
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:8080",             # local dev
+            "https://savannadesignsagency.com"   # production frontend
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-    # API routers
+    # -------------------- API routers --------------------
     app.include_router(auth_router.router, prefix="/api/v1/auth", tags=["auth"])
     app.include_router(reviews.router, prefix="/api/v1/reviews", tags=["reviews"])
     app.include_router(portfolio.router, prefix="/api/v1/portfolio", tags=["portfolio"])
@@ -38,7 +38,7 @@ def create_app() -> FastAPI:
     app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["quotes"])
     app.include_router(contacts.router, prefix="/api/v1/contacts", tags=["contacts"])
 
-    # ✅ DB Check endpoint
+    # -------------------- DB Check endpoint --------------------
     @app.get("/api/v1/db-check", tags=["system"])
     async def db_check():
         try:
@@ -47,7 +47,7 @@ def create_app() -> FastAPI:
         except Exception as e:
             return {"status": "error", "detail": str(e)}
 
-    # Root endpoint
+    # -------------------- Root endpoint --------------------
     @app.get("/")
     async def root():
         return {"status": "ok", "name": settings.PROJECT_NAME}
