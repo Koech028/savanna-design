@@ -13,18 +13,20 @@ os.makedirs("uploads", exist_ok=True)
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.PROJECT_NAME, version="1.0.0")
 
-    # Serve static files
+    # -------------------- Serve static files --------------------
     app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
     # -------------------- CORS --------------------
-    # ⚠️ For development: allow all origins
-    # allow_origins=["*"] is okay temporarily, but for production, use only your frontend URL
+    origins = [
+        "http://localhost:8080",             # Dev
+        "http://127.0.0.1:8080",             # Dev fallback
+        "https://savannadesignsagency.com",  # Production HTTPS
+        "http://savannadesignsagency.com"    # Production HTTP
+    ]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:8080",             # local dev
-            "https://savannadesignsagency.com"   # production frontend
-        ],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -54,5 +56,5 @@ def create_app() -> FastAPI:
 
     return app
 
-# Initialize app
+# -------------------- Initialize app --------------------
 app = create_app()
