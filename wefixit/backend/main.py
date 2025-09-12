@@ -3,12 +3,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
-
-from config import settings
-from routers import contacts
-from routers import reviews, portfolio, auth as auth_router, projects
-from routers import quotes
-from database import db  # ✅ Import db directly
+from backend.config import settings
+from backend.routers import contacts
+from backend.routers import reviews, portfolio, auth as auth_router, projects
+from backend.routers import quotes
+from backend.database import db  # ✅ Import your db here
 
 # Ensure uploads folder exists
 os.makedirs("uploads", exist_ok=True)
@@ -21,12 +20,12 @@ def create_app() -> FastAPI:
 
     # CORS configuration
     app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["http://localhost:8080"],  # adjust to frontend domain in prod
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    CORSMiddleware,
+    allow_origins=["http://localhost:8080"],  # your frontend dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
     # API routers
     app.include_router(auth_router.router, prefix="/api/v1/auth", tags=["auth"])
