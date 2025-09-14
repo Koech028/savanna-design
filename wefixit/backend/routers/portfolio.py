@@ -1,12 +1,11 @@
-﻿# backend/routers/portfolio.py
 from fastapi import (
     APIRouter, HTTPException, Query,
-    Depends, Form, File, UploadFile
+    Depends, Form, File, UploadFile, Request
 )
 from bson import ObjectId
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-import os
+import os, uuid
 
 from backend.database import get_db
 from backend.schemas import PortfolioOut
@@ -17,7 +16,6 @@ router = APIRouter(tags=["portfolio"])
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-BASE_URL = "http://localhost:5000"  # Change when deploying
 
 # ----------------------------
 # Helpers
@@ -34,6 +32,19 @@ def _doc_to_portfolio_out(doc: Dict[str, Any]) -> PortfolioOut:
         is_active=bool(doc.get("is_active", True)),
         created_at=doc.get("created_at", datetime.now(timezone.utc)),
     )
+
+
+def _save_image(image: UploadFile, base_url: str) -> str:
+    """Save uploaded file and return its public URL"""
+    ext = os.path.splitext(image.filename)[1]  # keep extension
+    unique_name = f"{uuid.uuid4().hex}{ext}"
+    file_path = os.path.join(UPLOAD_DIR, unique_name)
+
+    with open(file_path, "wb") as f:
+        f.write(image.file.read())
+
+    return f"{base_url.rstrip('/')}/uploads/{unique_name}"
+
 
 # ----------------------------
 # Routes
@@ -59,12 +70,7 @@ async def list_portfolio(
     async for doc in cursor:
         items.append(_doc_to_portfolio_out(doc))
 
-    return {
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-        "items": items,
-    }
+    return {"total": total, "limit": limit, "offset": offset, "items": items}
 
 
 @router.get("/{item_id}", response_model=PortfolioOut)
@@ -81,6 +87,7 @@ async def get_portfolio_item(item_id: str, db=Depends(get_db)):
 
 @router.post("/", response_model=PortfolioOut)
 async def create_portfolio_item(
+    request: Request,
     title: str = Form(...),
     description: Optional[str] = Form(None),
     category: Optional[str] = Form(None),
@@ -101,26 +108,21 @@ async def create_portfolio_item(
         "created_at": datetime.now(timezone.utc),
     }
 
-    # Save image if uploaded
     if image:
         try:
-            file_path = os.path.join(UPLOAD_DIR, image.filename)
-            with open(file_path, "wb") as f:
-                f.write(await image.read())
-            data["image_url"] = f"{BASE_URL}/uploads/{image.filename}"
+            base_url = str(request.base_url)
+            data["image_url"] = _save_image(image, base_url)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to save image: {str(e)}")
 
-    # Insert into DB
     result = await db.portfolio.insert_one(data)
     new_doc = await db.portfolio.find_one({"_id": result.inserted_id})
-
-    # Return valid PortfolioOut
     return _doc_to_portfolio_out(new_doc)
 
 
 @router.put("/{item_id}", response_model=PortfolioOut)
 async def update_portfolio_item(
+    request: Request,
     item_id: str,
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
@@ -150,10 +152,8 @@ async def update_portfolio_item(
         updates["is_active"] = is_active
 
     if image:
-        file_path = os.path.join(UPLOAD_DIR, image.filename)
-        with open(file_path, "wb") as f:
-            f.write(await image.read())
-        updates["image_url"] = f"{BASE_URL}/uploads/{image.filename}"
+        base_url = str(request.base_url)
+        updates["image_url"] = _save_image(image, base_url)
 
     if updates:
         result = await db.portfolio.update_one({"_id": ObjectId(item_id)}, {"$set": updates})
