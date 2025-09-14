@@ -1,4 +1,4 @@
-﻿# backend/schemas.py
+# backend/schemas.py
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 from datetime import datetime
@@ -14,9 +14,9 @@ class PyObjectId(ObjectId):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v, _info=None):  # 👈 add _info for compatibility
+    def validate(cls, v, _info=None):  # For Pydantic v2
         if not ObjectId.is_valid(v):
-            raise ValueError("Invalid objectid")
+            raise ValueError("Invalid ObjectId")
         return ObjectId(v)
 
     @classmethod
@@ -66,13 +66,14 @@ class ReviewSchema(BaseModel):
         populate_by_name=True
     )
 
+
 # ----------------------------
 # Portfolio Schemas
 # ----------------------------
 class PortfolioBase(BaseModel):
     title: str
     description: Optional[str] = None
-    image_url: Optional[str] = Field(None, alias="image")  # accept "image" from frontend
+    image_url: Optional[str] = Field(None, alias="image")  # Accept "image" from frontend
     link: Optional[str] = None
     tags: List[str] = []
     is_featured: bool = False
@@ -110,3 +111,4 @@ class PortfolioOut(PortfolioBase):
         json_encoders={ObjectId: str},
         populate_by_name=True
     )
+
