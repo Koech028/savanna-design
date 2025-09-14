@@ -1,8 +1,9 @@
-# main.py
+# backend/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
+
 from backend.config import settings
 from backend.routers import contacts, reviews, portfolio, auth as auth_router, projects, quotes
 from backend.database import db  # ✅ Import your db here
