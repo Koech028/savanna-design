@@ -1,3 +1,4 @@
+# backend/routers/portfolio.py
 from fastapi import (
     APIRouter, HTTPException, Query,
     Depends, Form, File, UploadFile, Request
@@ -13,6 +14,7 @@ from backend.deps import get_current_admin
 
 router = APIRouter(tags=["portfolio"])
 
+# Ensure uploads folder exists
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -36,13 +38,15 @@ def _doc_to_portfolio_out(doc: Dict[str, Any]) -> PortfolioOut:
 
 def _save_image(image: UploadFile, base_url: str) -> str:
     """Save uploaded file and return its public URL"""
-    ext = os.path.splitext(image.filename)[1]  # keep extension
+    ext = os.path.splitext(image.filename)[1]  # preserve extension
     unique_name = f"{uuid.uuid4().hex}{ext}"
     file_path = os.path.join(UPLOAD_DIR, unique_name)
 
+    # Save file to uploads directory
     with open(file_path, "wb") as f:
         f.write(image.file.read())
 
+    # Return public URL
     return f"{base_url.rstrip('/')}/uploads/{unique_name}"
 
 
@@ -110,7 +114,8 @@ async def create_portfolio_item(
 
     if image:
         try:
-            base_url = str(request.base_url)
+            # Use the base URL of your deployed backend
+            base_url = "https://savanna-design.onrender.com"
             data["image_url"] = _save_image(image, base_url)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to save image: {str(e)}")
@@ -152,7 +157,7 @@ async def update_portfolio_item(
         updates["is_active"] = is_active
 
     if image:
-        base_url = str(request.base_url)
+        base_url = "https://savanna-design.onrender.com"
         updates["image_url"] = _save_image(image, base_url)
 
     if updates:
