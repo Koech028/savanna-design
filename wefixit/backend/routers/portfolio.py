@@ -1,7 +1,7 @@
 # backend/routers/portfolio.py
 from fastapi import (
     APIRouter, HTTPException, Query,
-    Depends, Form, File, UploadFile, Request
+    Depends, Form, File, UploadFile
 )
 from bson import ObjectId
 from datetime import datetime, timezone
@@ -18,6 +18,11 @@ router = APIRouter(tags=["portfolio"])
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# Base URL from environment
+BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:5000")
+
+# Allowed image extensions
+ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
 
 # ----------------------------
 # Helpers
@@ -38,7 +43,13 @@ def _doc_to_portfolio_out(doc: Dict[str, Any]) -> PortfolioOut:
 
 def _save_image(image: UploadFile, base_url: str) -> str:
     """Save uploaded file and return its public URL"""
-    ext = os.path.splitext(image.filename)[1]  # preserve extension
+    ext = os.path.splitext(image.filename)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid image type. Allowed: jpg, jpeg, png, gif, webp"
+        )
+
     unique_name = f"{uuid.uuid4().hex}{ext}"
     file_path = os.path.join(UPLOAD_DIR, unique_name)
 
@@ -91,7 +102,6 @@ async def get_portfolio_item(item_id: str, db=Depends(get_db)):
 
 @router.post("/", response_model=PortfolioOut)
 async def create_portfolio_item(
-    request: Request,
     title: str = Form(...),
     description: Optional[str] = Form(None),
     category: Optional[str] = Form(None),
@@ -114,9 +124,7 @@ async def create_portfolio_item(
 
     if image:
         try:
-            # Use the base URL of your deployed backend
-            base_url = "https://savanna-design.onrender.com"
-            data["image_url"] = _save_image(image, base_url)
+            data["image_url"] = _save_image(image, BASE_URL)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to save image: {str(e)}")
 
@@ -127,7 +135,6 @@ async def create_portfolio_item(
 
 @router.put("/{item_id}", response_model=PortfolioOut)
 async def update_portfolio_item(
-    request: Request,
     item_id: str,
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
@@ -157,8 +164,7 @@ async def update_portfolio_item(
         updates["is_active"] = is_active
 
     if image:
-        base_url = "https://savanna-design.onrender.com"
-        updates["image_url"] = _save_image(image, base_url)
+        updates["image_url"] = _save_image(image, BASE_URL)
 
     if updates:
         result = await db.portfolio.update_one({"_id": ObjectId(item_id)}, {"$set": updates})
