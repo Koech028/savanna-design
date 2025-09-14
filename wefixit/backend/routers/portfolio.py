@@ -17,16 +17,15 @@ router = APIRouter(tags=["portfolio"])
 # Allowed image extensions
 ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
 
-
 # ----------------------------
 # Helpers
 # ----------------------------
 def _doc_to_portfolio_out(doc: Dict[str, Any]) -> PortfolioOut:
     return PortfolioOut(
-        _id=str(doc["_id"]),
+        id=doc.get("_id"),
         title=doc["title"],
         description=doc.get("description"),
-        image=doc.get("image"),  # Base64 string now
+        image=doc.get("image"),  # Base64 string
         link=doc.get("link"),
         tags=doc.get("tags", []),
         is_featured=bool(doc.get("is_featured", False)),
@@ -35,10 +34,16 @@ def _doc_to_portfolio_out(doc: Dict[str, Any]) -> PortfolioOut:
     )
 
 
-async def _encode_image(image: UploadFile) -> str:
-    """Convert uploaded file to Base64 string"""
-    contents = await image.read()
-    return base64.b64encode(contents).decode("utf-8")
+def _encode_image_to_base64(image: UploadFile) -> str:
+    ext = image.filename.split(".")[-1].lower()
+    if f".{ext}" not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid image type. Allowed: jpg, jpeg, png, gif, webp"
+        )
+    content = image.file.read()
+    encoded = base64.b64encode(content).decode("utf-8")
+    return f"data:image/{ext};base64,{encoded}"
 
 
 # ----------------------------
@@ -104,9 +109,9 @@ async def create_portfolio_item(
 
     if image:
         try:
-            data["image"] = await _encode_image(image)
+            data["image"] = _encode_image_to_base64(image)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to process image: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to encode image: {str(e)}")
 
     result = await db.portfolio.insert_one(data)
     new_doc = await db.portfolio.find_one({"_id": result.inserted_id})
@@ -144,7 +149,7 @@ async def update_portfolio_item(
         updates["is_active"] = is_active
 
     if image:
-        updates["image"] = await _encode_image(image)
+        updates["image"] = _encode_image_to_base64(image)
 
     if updates:
         result = await db.portfolio.update_one({"_id": ObjectId(item_id)}, {"$set": updates})
@@ -165,4 +170,3 @@ async def delete_portfolio_item(item_id: str, _admin=Depends(get_current_admin),
         raise HTTPException(status_code=404, detail="Item not found")
 
     return {"message": "Portfolio item deleted successfully"}
-
