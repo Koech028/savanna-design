@@ -6,7 +6,7 @@ from fastapi import (
 from bson import ObjectId
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-import os, uuid
+import base64
 
 from backend.database import get_db
 from backend.schemas import PortfolioOut
@@ -14,15 +14,9 @@ from backend.deps import get_current_admin
 
 router = APIRouter(tags=["portfolio"])
 
-# Ensure uploads folder exists
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-# Base URL from environment
-BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:5000")
-
 # Allowed image extensions
 ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
+
 
 # ----------------------------
 # Helpers
@@ -32,7 +26,7 @@ def _doc_to_portfolio_out(doc: Dict[str, Any]) -> PortfolioOut:
         _id=str(doc["_id"]),
         title=doc["title"],
         description=doc.get("description"),
-        image=doc.get("image_url"),
+        image=doc.get("image"),  # Base64 string now
         link=doc.get("link"),
         tags=doc.get("tags", []),
         is_featured=bool(doc.get("is_featured", False)),
@@ -41,24 +35,10 @@ def _doc_to_portfolio_out(doc: Dict[str, Any]) -> PortfolioOut:
     )
 
 
-def _save_image(image: UploadFile, base_url: str) -> str:
-    """Save uploaded file and return its public URL"""
-    ext = os.path.splitext(image.filename)[1].lower()
-    if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid image type. Allowed: jpg, jpeg, png, gif, webp"
-        )
-
-    unique_name = f"{uuid.uuid4().hex}{ext}"
-    file_path = os.path.join(UPLOAD_DIR, unique_name)
-
-    # Save file to uploads directory
-    with open(file_path, "wb") as f:
-        f.write(image.file.read())
-
-    # Return public URL
-    return f"{base_url.rstrip('/')}/uploads/{unique_name}"
+async def _encode_image(image: UploadFile) -> str:
+    """Convert uploaded file to Base64 string"""
+    contents = await image.read()
+    return base64.b64encode(contents).decode("utf-8")
 
 
 # ----------------------------
@@ -124,9 +104,9 @@ async def create_portfolio_item(
 
     if image:
         try:
-            data["image_url"] = _save_image(image, BASE_URL)
+            data["image"] = await _encode_image(image)
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to save image: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to process image: {str(e)}")
 
     result = await db.portfolio.insert_one(data)
     new_doc = await db.portfolio.find_one({"_id": result.inserted_id})
@@ -164,7 +144,7 @@ async def update_portfolio_item(
         updates["is_active"] = is_active
 
     if image:
-        updates["image_url"] = _save_image(image, BASE_URL)
+        updates["image"] = await _encode_image(image)
 
     if updates:
         result = await db.portfolio.update_one({"_id": ObjectId(item_id)}, {"$set": updates})
@@ -185,3 +165,4 @@ async def delete_portfolio_item(item_id: str, _admin=Depends(get_current_admin),
         raise HTTPException(status_code=404, detail="Item not found")
 
     return {"message": "Portfolio item deleted successfully"}
+
